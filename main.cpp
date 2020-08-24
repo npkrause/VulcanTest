@@ -104,7 +104,12 @@ private:
         createLogicalDevice();
         createSwapChain();
         createImageViews();
+	createGraphicsPipeLine();
     }
+
+    void createGraphicsPipeline() {
+	
+         }
 
     void mainLoop() {
         while (!glfwWindowShouldClose(window)) {
