@@ -51,11 +51,11 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
 }
 
 struct QueueFamilyIndices {
-    std::optional<uint32_t> graphicsFamily;
-    std::optional<uint32_t> presentFamily;
+    uint32_t graphicsFamily = -1;
+    uint32_t transferFamily = -1;
 
     bool isComplete() {
-        return graphicsFamily.has_value() && presentFamily.has_value();
+        return (graphicsFamily >= 0 && transferFamily >= 0);
     }
 };
 
@@ -347,7 +347,7 @@ private:
         QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 
         std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-        std::set<uint32_t> uniqueQueueFamilies = {indices.graphicsFamily.value(), indices.presentFamily.value()};
+        std::set<uint32_t> uniqueQueueFamilies = {indices.graphicsFamily, indices.transferFamily};
 
         float queuePriority = 1.0f;
         for (uint32_t queueFamily : uniqueQueueFamilies) {
@@ -383,8 +383,8 @@ private:
             throw std::runtime_error("failed to create logical device!");
         }
 
-        vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
-        vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
+        vkGetDeviceQueue(device, indices.graphicsFamily, 0, &graphicsQueue);
+        vkGetDeviceQueue(device, indices.transferFamily, 0, &presentQueue);
     }
 
     void createSwapChain() {
@@ -411,9 +411,9 @@ private:
         createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
         QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
-        uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
+        uint32_t queueFamilyIndices[] = {indices.graphicsFamily, indices.transferFamily};
 
-        if (indices.graphicsFamily != indices.presentFamily) {
+        if (indices.graphicsFamily != indices.transferFamily) {
             createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
             createInfo.queueFamilyIndexCount = 2;
             createInfo.pQueueFamilyIndices = queueFamilyIndices;
@@ -651,19 +651,29 @@ private:
 
         VkCommandPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-        poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+        poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily;
 
-        if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
+        VkCommandPoolCreateInfo TransferInfo{};
+        poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        poolInfo.queueFamilyIndex = queueFamilyIndices.transferFamily;
+
+        if (vkCreateCommandPool(device, &TransferInfo, nullptr, &commandPool) != VK_SUCCESS) {
             throw std::runtime_error("failed to create command pool!");
         }
     }
 
     void createVertexBuffer() {
+        QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+	uint32_t queueFamilyIndices[] = {indices.graphicsFamily, indices.transferFamily};
+
         VkBufferCreateInfo bufferInfo{};
         bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         bufferInfo.size = sizeof(vertices[0]) * vertices.size();
         bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        bufferInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
+        bufferInfo.queueFamilyIndexCount = 2;
+        bufferInfo.pQueueFamilyIndices = queueFamilyIndices;
+
 
         if (vkCreateBuffer(device, &bufferInfo, nullptr, &vertexBuffer) != VK_SUCCESS) {
             throw std::runtime_error("failed to create vertex buffer!");
@@ -960,11 +970,16 @@ private:
                 indices.graphicsFamily = i;
             }
 
+         if( queueFamily.queueCount > 0 && (queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT) && 
+            !(queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) /*&& presentSupport*/ ) {
+            indices.transferFamily = i;
+         }
+
             VkBool32 presentSupport = false;
             vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
 
             if (presentSupport) {
-                indices.presentFamily = i;
+                indices.transferFamily = i;
             }
 
             if (indices.isComplete()) {
@@ -973,6 +988,11 @@ private:
 
             i++;
         }
+
+	if (indices.graphicsFamily >= 0 && indices.transferFamily == -1 ) {
+            std::cout << "Graphics family found, transfer family missing: using graphics family" << std::endl;
+            indices.transferFamily = indices.graphicsFamily;
+    	}
 
         return indices;
     }
