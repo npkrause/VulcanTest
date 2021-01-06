@@ -241,10 +241,11 @@ private:
         cleanupSwapChain();
 
 	vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
-        vkDestroyBuffer(device, vertexBuffer, nullptr);
-        vkFreeMemory(device, vertexBufferMemory, nullptr);
         vkDestroyBuffer(device, indexBuffer, nullptr);
         vkFreeMemory(device, indexBufferMemory, nullptr);
+
+        vkDestroyBuffer(device, vertexBuffer, nullptr);
+        vkFreeMemory(device, vertexBufferMemory, nullptr);
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
@@ -538,6 +539,22 @@ private:
         }
     }
 
+    void createDescriptorSetLayout() {	
+        VkDescriptorSetLayoutBinding uboLayoutBinding{};	
+        uboLayoutBinding.binding = 0;	
+        uboLayoutBinding.descriptorCount = 1;	
+        uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;	
+        uboLayoutBinding.pImmutableSamplers = nullptr;	
+        uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;	
+        VkDescriptorSetLayoutCreateInfo layoutInfo{};	
+        layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;	
+        layoutInfo.bindingCount = 1;	
+        layoutInfo.pBindings = &uboLayoutBinding;	
+        if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {	
+            throw std::runtime_error("failed to create descriptor set layout!");	
+        }	
+    }
+
     void createGraphicsPipeline() {
         auto vertShaderCode = readFile("shaders/vert.spv");
         auto fragShaderCode = readFile("shaders/frag.spv");
@@ -626,8 +643,8 @@ private:
 
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        pipelineLayoutInfo.setLayoutCount = 0;
-        pipelineLayoutInfo.pushConstantRangeCount = 0;
+        pipelineLayoutInfo.setLayoutCount = 1;
+        pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
 
         if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
             throw std::runtime_error("failed to create pipeline layout!");
@@ -654,31 +671,6 @@ private:
 
         vkDestroyShaderModule(device, fragShaderModule, nullptr);
         vkDestroyShaderModule(device, vertShaderModule, nullptr);
-    }
-
-    void createDescriptorSetLayout() {
-         VkDescriptorSetLayoutBinding uboLayoutBinding{};
-    	 uboLayoutBinding.binding = 0;
-    	 uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-         uboLayoutBinding.descriptorCount = 1;
-    
-    	 uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    	 uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
-
-    
-         VkDescriptorSetLayoutCreateInfo layoutInfo{};
-         layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-         layoutInfo.bindingCount = 1;
-         layoutInfo.pBindings = &uboLayoutBinding;
-
-         if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
-             throw std::runtime_error("failed to create descriptor set layout!");
-         }
-
-         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-         pipelineLayoutInfo.setLayoutCount = 1;
-         pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
     }
 
     void createFramebuffers() {
@@ -925,7 +917,7 @@ private:
     }
 
     void drawFrame() {
-        vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+	vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
         uint32_t imageIndex;
         VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
@@ -937,13 +929,13 @@ private:
             throw std::runtime_error("failed to acquire swap chain image!");
         }
 
+        updateUniformBuffer(imageIndex);
+
         if (imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
             vkWaitForFences(device, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
         }
         imagesInFlight[imageIndex] = inFlightFences[currentFrame];
 
-	updateUniformBuffer(imageIndex);
-	
         VkSubmitInfo submitInfo{};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -999,7 +991,10 @@ private:
     
          UniformBufferObject ubo{};
          ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	 ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
          ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
+	 ubo.proj[1][1] *= -1;
+
          void* data;
          vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data);
          memcpy(data, &ubo, sizeof(ubo));
