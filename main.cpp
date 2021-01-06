@@ -157,9 +157,11 @@ private:
     VkDeviceMemory vertexBufferMemory;
     VkBuffer indexBuffer;
     VkDeviceMemory indexBufferMemory;
+    VkDescriptorPool descriptorPool;
 
     std::vector<VkBuffer> uniformBuffers;
     std::vector<VkCommandBuffer> commandBuffers;
+    std::vector<VkDescriptorSet> descriptorSets;
     std::vector<VkDeviceMemory> uniformBuffersMemory;
 
     std::vector<VkSemaphore> imageAvailableSemaphores;
@@ -201,6 +203,7 @@ private:
         createVertexBuffer();
 	createIndexBuffer();
 	createUniformBuffers();
+	createDescriptorPool();
         createCommandBuffers();
         createSyncObjects();
     }
@@ -235,6 +238,13 @@ private:
              vkDestroyBuffer(device, uniformBuffers[i], nullptr);
              vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
     	}
+    
+        for (size_t i = 0; i < swapChainImages.size(); i++) {
+	     vkDestroyBuffer(device, uniformBuffers[i], nullptr);
+	     vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
+    	}
+
+    	vkDestroyDescriptorPool(device, descriptorPool, nullptr);
     }
 
     void cleanup() {
@@ -287,6 +297,8 @@ private:
         createGraphicsPipeline();
         createFramebuffers();
 	createUniformBuffers();
+        createDescriptorPool();
+        createDescriptorSets();
         createCommandBuffers();
     }
 
@@ -620,6 +632,9 @@ private:
         rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
         rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
         rasterizer.depthBiasEnable = VK_FALSE;
+	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+        rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+        
 
         VkPipelineMultisampleStateCreateInfo multisampling{};
         multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
@@ -830,6 +845,57 @@ private:
         createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
        }
    }
+   
+   void createDescriptorPool() {
+        VkDescriptorPoolSize poolSize{};
+        poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        poolSize.descriptorCount = static_cast<uint32_t>(swapChainImages.size());
+        VkDescriptorPoolCreateInfo poolInfo{};
+	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolInfo.poolSizeCount = 1;
+	poolInfo.pPoolSizes = &poolSize;
+        poolInfo.maxSets = static_cast<uint32_t>(swapChainImages.size());
+
+        if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
+    	    throw std::runtime_error("failed to create descriptor pool!");
+        }
+  }
+
+   void createDescriptorSets() {
+	VkDescriptorPool descriptorPool;
+        std::vector<VkDescriptorSet> descriptorSets;
+        std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), descriptorSetLayout);
+        VkDescriptorSetAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocInfo.descriptorPool = descriptorPool;
+        allocInfo.descriptorSetCount = static_cast<uint32_t>(swapChainImages.size());
+        allocInfo.pSetLayouts = layouts.data();
+	
+        descriptorSets.resize(swapChainImages.size());
+        if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()) != VK_SUCCESS) {
+            throw std::runtime_error("failed to allocate descriptor sets!");
+        }
+
+	for (size_t i = 0; i < swapChainImages.size(); i++) {
+    	     VkDescriptorBufferInfo bufferInfo{};
+    	     bufferInfo.buffer = uniformBuffers[i];
+    	     bufferInfo.offset = 0;
+    	     bufferInfo.range = sizeof(UniformBufferObject);
+	
+	    VkWriteDescriptorSet descriptorWrite{};
+	    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	    descriptorWrite.dstSet = descriptorSets[i];
+	    descriptorWrite.dstBinding = 0;
+	    descriptorWrite.dstArrayElement = 0;
+	    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	    descriptorWrite.descriptorCount = 1;
+	    descriptorWrite.pBufferInfo = &bufferInfo;
+	    descriptorWrite.pImageInfo = nullptr; // Optional
+	    descriptorWrite.pTexelBufferView = nullptr; // Optional
+	    vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
+	}
+
+   }
 
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
         VkPhysicalDeviceMemoryProperties memProperties;
@@ -865,18 +931,18 @@ private:
                 throw std::runtime_error("failed to begin recording command buffer!");
             }
 
-            VkRenderPassBeginInfo renderPassInfo{};
-            renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-            renderPassInfo.renderPass = renderPass;
-            renderPassInfo.framebuffer = swapChainFramebuffers[i];
-            renderPassInfo.renderArea.offset = {0, 0};
-            renderPassInfo.renderArea.extent = swapChainExtent;
+           VkRenderPassBeginInfo renderPassInfo{};
+           renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+           renderPassInfo.renderPass = renderPass;
+           renderPassInfo.framebuffer = swapChainFramebuffers[i];
+           renderPassInfo.renderArea.offset = {0, 0};
+           renderPassInfo.renderArea.extent = swapChainExtent;
 
-            VkClearValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
-            renderPassInfo.clearValueCount = 1;
-            renderPassInfo.pClearValues = &clearColor;
+           VkClearValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f};
+           renderPassInfo.clearValueCount = 1;
+           renderPassInfo.pClearValues = &clearColor;
 
-            vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+           vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
            vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
@@ -884,6 +950,8 @@ private:
            VkDeviceSize offsets[] = {0};
 	   vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
 	   vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+           vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
+	   vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
            vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
            vkCmdEndRenderPass(commandBuffers[i]);
