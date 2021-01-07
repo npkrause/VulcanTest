@@ -131,45 +131,44 @@ public:
 private:
     GLFWwindow* window;
 
-    VkInstance instance;
+    VkBuffer vertexBuffer;
+    VkBuffer indexBuffer;
+    VkCommandPool commandPool;
     VkDebugUtilsMessengerEXT debugMessenger;
-    VkSurfaceKHR surface;
-
-    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-    VkDevice device;
-
-    VkQueue graphicsQueue;
-    VkQueue presentQueue;
-
-    VkSwapchainKHR swapChain;
-    std::vector<VkImage> swapChainImages;
-    VkFormat swapChainImageFormat;
-    VkExtent2D swapChainExtent;
-    std::vector<VkImageView> swapChainImageViews;
-    std::vector<VkFramebuffer> swapChainFramebuffers;
-
-    VkRenderPass renderPass;
+    VkDescriptorPool descriptorPool;
     VkDescriptorSetLayout descriptorSetLayout;
+    VkDevice device;
+    VkDeviceMemory vertexBufferMemory;
+    VkDeviceMemory textureImageMemory;
+    VkDeviceMemory indexBufferMemory;
+    VkExtent2D swapChainExtent;
+    VkFormat swapChainImageFormat;
+    VkInstance instance;
+    VkImage textureImage;
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
+    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+    VkQueue graphicsQueue;
+    VkQueue presentQueue;
+    VkRenderPass renderPass;
+    VkSurfaceKHR surface;
+    VkSwapchainKHR swapChain;
 
-    VkCommandPool commandPool;
 
-    VkBuffer vertexBuffer;
-    VkDeviceMemory vertexBufferMemory;
-    VkBuffer indexBuffer;
-    VkDeviceMemory indexBufferMemory;
-    VkDescriptorPool descriptorPool;
+
 
     std::vector<VkBuffer> uniformBuffers;
     std::vector<VkCommandBuffer> commandBuffers;
     std::vector<VkDescriptorSet> descriptorSets;
     std::vector<VkDeviceMemory> uniformBuffersMemory;
-
-    std::vector<VkSemaphore> imageAvailableSemaphores;
-    std::vector<VkSemaphore> renderFinishedSemaphores;
     std::vector<VkFence> inFlightFences;
     std::vector<VkFence> imagesInFlight;
+    std::vector<VkFramebuffer> swapChainFramebuffers;
+    std::vector<VkImage> swapChainImages;
+    std::vector<VkImageView> swapChainImageViews;
+    std::vector<VkSemaphore> imageAvailableSemaphores;
+    std::vector<VkSemaphore> renderFinishedSemaphores;
+
     size_t currentFrame = 0;
 
     bool framebufferResized = false;
