@@ -145,6 +145,7 @@ private:
     VkFormat swapChainImageFormat;
     VkInstance instance;
     VkImage textureImage;
+    VkImageView textureImageView;
     VkImageView textureSamplerView;
     VkSampler textureSampler;
     VkPipelineLayout pipelineLayout;
@@ -499,7 +500,7 @@ private:
         swapChainImageViews.resize(swapChainImages.size());
 
         for (size_t i = 0; i < swapChainImages.size(); i++) {
-	     swapChainImagesView[i] = createImageView(swapChainImages[i], VK_FORMAT_R8B8G8A8_SRGB);
+	     swapChainImageViews[i] = createImageView(swapChainImages[i], VK_FORMAT_R8G8B8A8_SRGB);
         }
     }
 
@@ -750,7 +751,7 @@ private:
     }
   
     void createTextureImageView() {
-       textureImageView = createImageView(textureImage, VK_FORMAT_R8B8G8A8_SRGB);
+       textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB);
     }
   
     void createTextureSampler() {
@@ -761,9 +762,9 @@ private:
        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-       samplerInfo.anisotrophy = VK_TRUE
+       samplerInfo.anisotropyEnable = VK_TRUE;
        VkPhysicalDeviceProperties properties{};
-       vkGetPhysicalDeviceProperties(physicalDevice, &properties
+       vkGetPhysicalDeviceProperties(physicalDevice, &properties);
        samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
        samplerInfo.unnormalizedCoordinates = VK_FALSE;
        samplerInfo.compareEnable = VK_FALSE;
