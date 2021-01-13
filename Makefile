@@ -1,7 +1,8 @@
 VULKAN_SDK_PATH = /home/npkrause/VulcanSDK/1.2.141.0/x86_64
 STB_INCLUDE_PATH = /home/npkrause/libraries/stb
+TINYOBJ_INCLUDE_PATH = /home/npkrause/libraries/tinyobjloader
 
-CFLAGS = -std=c++17 -I$(VULKAN_SDK_PATH)/include -I$(STB_INCLUDE_PATH)
+CFLAGS = -std=c++17 -I$(VULKAN_SDK_PATH)/include -I$(STB_INCLUDE_PATH) -I$(TINYOBJ_INCLUDE_PATH)
 LDFLAGS = -L$(VULKAN_SDK_PATH)/lib `pkg-config --static --libs glfw3` -lvulkan
 debug: CCFLAGS += -DNDEBUG -g
 debug: VulkanTest
